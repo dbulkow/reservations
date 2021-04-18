@@ -1,0 +1,6 @@
+convert \
+	-resize x32 \
+	-gravity center \
+	-crop 32x32+0+0 modern_clock.png \
+	-flatten -colors 256 \
+	-background transparent favicon.ico
