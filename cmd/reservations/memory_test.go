@@ -136,6 +136,53 @@ func TestMemoryList(t *testing.T) {
 	if len(res) != count {
 		t.Fatalf("expected %d reservations got %d", count, len(res))
 	}
+
+	res, err = storage.List("resource A", "all", 0, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(res) != 2 {
+		t.Fatalf("expected %d reservations got %d", 2, len(res))
+	}
+
+	time.Sleep(50 * time.Millisecond)
+
+	res, err = storage.List("", "current", 0, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(res) != 2 {
+		t.Fatalf("expected %d reservations got %d", 2, len(res))
+	}
+
+	res, err = storage.List("", "history", 0, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(res) != 1 {
+		t.Fatalf("expected %d reservations got %d", 1, len(res))
+	}
+
+	res, err = storage.List("", "all", 0, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(res) != len(storage.reservations) {
+		t.Fatalf("expected %d reservations got %d", len(storage.reservations), len(res))
+	}
+
+	res, err = storage.List("", "active", 0, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(res) != 8 {
+		t.Fatalf("expected %d reservations got %d", 8, len(res))
+	}
 }
 
 func TestMemoryAdd(t *testing.T) {
@@ -232,10 +279,10 @@ func TestMemoryAddUnknownName(t *testing.T) {
 	storage, now := fillMemory(false)
 
 	res := &Reservation{
-		Name:     "Frank Mistfowler",
 		Resource: "resource D",
 		Start:    now.Add(100 * time.Second),
 		End:      now.Add(120 * time.Second),
+		Name:     "Frank Mistfowler",
 	}
 
 	err := storage.Add(res)
@@ -249,6 +296,213 @@ func TestMemoryAddUnknownName(t *testing.T) {
 }
 
 func TestMemoryUpdate(t *testing.T) {
+	storage, now := fillMemory(true)
+
+	id := 35
+
+	res, err := storage.GetById(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := &Reservation{
+		LastModified: res.LastModified,
+		Resource:     res.Resource,
+		Start:        res.Start,
+		End:          now.Add(1 * time.Hour),
+		Loan:         res.Loan,
+		Share:        res.Share,
+		Notes:        res.Notes,
+		Name:         "test person",
+		Initials:     res.Initials,
+	}
+
+	res, err = storage.Update(id, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if res.Name != req.Name {
+		t.Fatalf("name not modified")
+	}
+
+	if res.End != req.End {
+		t.Fatalf("end time not modified")
+	}
+}
+
+func TestMemoryUpdateActive(t *testing.T) {
+	storage, now := fillMemory(true)
+
+	time.Sleep(50 * time.Millisecond)
+
+	id := 113
+
+	res, err := storage.GetById(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := &Reservation{
+		LastModified: res.LastModified,
+		Resource:     res.Resource,
+		Start:        res.Start,
+		End:          now.Add(1 * time.Hour),
+		Loan:         res.Loan,
+		Share:        res.Share,
+		Notes:        res.Notes,
+		Name:         "test person",
+		Initials:     res.Initials,
+	}
+
+	res, err = storage.Update(id, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if res.Name != req.Name {
+		t.Fatalf("name not modified")
+	}
+
+	if res.End != req.End {
+		t.Fatalf("end time not modified")
+	}
+}
+
+func TestMemoryUpdateModified(t *testing.T) {
+	storage, now := fillMemory(true)
+
+	id := 35
+
+	res, err := storage.GetById(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	res.LastModified = res.LastModified.Add(time.Second)
+
+	req := &Reservation{
+		LastModified: now,
+		Resource:     res.Resource,
+		Start:        res.Start,
+		End:          now.Add(1 * time.Hour),
+		Loan:         res.Loan,
+		Share:        res.Share,
+		Notes:        res.Notes,
+		Name:         "test person",
+		Initials:     res.Initials,
+	}
+
+	res, err = storage.Update(id, req)
+	if err == nil {
+		t.Fatal("expected \"not modifed\" error")
+	}
+
+	if strings.Contains(err.Error(), "modified") == false {
+		t.Fatalf("expected \"modified\" got \"%s\"", err.Error())
+	}
+}
+
+func TestMemoryUpdateExpired(t *testing.T) {
+	storage, now := fillMemory(true)
+
+	time.Sleep(50 * time.Millisecond)
+
+	id := 114
+
+	res, err := storage.GetById(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := &Reservation{
+		LastModified: res.LastModified,
+		Resource:     res.Resource,
+		Start:        res.Start,
+		End:          now.Add(1 * time.Hour),
+		Loan:         res.Loan,
+		Share:        res.Share,
+		Notes:        res.Notes,
+		Name:         "test person",
+		Initials:     res.Initials,
+	}
+
+	res, err = storage.Update(id, req)
+	if err == nil {
+		t.Fatal("expected \"already expired\" error")
+	}
+
+	if strings.Contains(err.Error(), "already expired") == false {
+		t.Fatalf("expected \"already expired\" got \"%s\"", err.Error())
+	}
+}
+
+func TestMemoryUpdateAlreadyActive(t *testing.T) {
+	storage, now := fillMemory(true)
+
+	time.Sleep(50 * time.Millisecond)
+
+	id := 113
+
+	res, err := storage.GetById(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := &Reservation{
+		LastModified: res.LastModified,
+		Resource:     "new resource",
+		Start:        res.Start,
+		End:          now.Add(1 * time.Hour),
+		Loan:         res.Loan,
+		Share:        res.Share,
+		Notes:        res.Notes,
+		Name:         "test person",
+		Initials:     res.Initials,
+	}
+
+	res, err = storage.Update(id, req)
+	if err == nil {
+		t.Fatal("expected \"already active\" error")
+	}
+
+	if strings.Contains(err.Error(), "already active") == false {
+		t.Fatalf("expected \"already active\" got \"%s\"", err.Error())
+	}
+}
+
+func TestMemoryUpdateConvertActiveLoan(t *testing.T) {
+	storage, now := fillMemory(true)
+
+	time.Sleep(50 * time.Millisecond)
+
+	id := 113
+
+	res, err := storage.GetById(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := &Reservation{
+		LastModified: res.LastModified,
+		Resource:     res.Resource,
+		Start:        res.Start,
+		End:          now.Add(1 * time.Hour),
+		Loan:         !res.Loan,
+		Share:        res.Share,
+		Notes:        res.Notes,
+		Name:         "test person",
+		Initials:     res.Initials,
+	}
+
+	res, err = storage.Update(id, req)
+	if err == nil {
+		t.Fatal("expected \"converting\" error")
+	}
+
+	if strings.Contains(err.Error(), "converting to/from loan") == false {
+		t.Fatalf("expected \"converting to/from loan\" got \"%s\"", err.Error())
+	}
 }
 
 func TestMemoryDelete(t *testing.T) {

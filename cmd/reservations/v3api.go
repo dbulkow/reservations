@@ -326,7 +326,7 @@ func v3put(storage Storage, w http.ResponseWriter, r *http.Request, ref int) {
 			v3error(w, err.Error(), http.StatusNotFound)
 			return
 		}
-		if strings.Contains(err.Error(), "range conflict") || strings.Contains(err.Error(), "on loan") {
+		if strings.Contains(err.Error(), "range conflict") || strings.Contains(err.Error(), "on loan") || strings.Contains(err.Error(), "modified") {
 			v3error(w, err.Error(), http.StatusConflict)
 			return
 		}
@@ -371,7 +371,7 @@ func v3patch(storage Storage, w http.ResponseWriter, r *http.Request, ref int) {
 	last, err := time.Parse(time.RFC1123, since)
 	if err == nil {
 		if res.LastModified.After(last) {
-			v3error(w, "resource modified", http.StatusConflict)
+			v3error(w, "reservation modified", http.StatusConflict)
 			return
 		}
 	}
@@ -394,7 +394,7 @@ func v3patch(storage Storage, w http.ResponseWriter, r *http.Request, ref int) {
 			v3error(w, err.Error(), http.StatusNotFound)
 			return
 		}
-		if strings.Contains(err.Error(), "range conflict") || strings.Contains(err.Error(), "on loan") {
+		if strings.Contains(err.Error(), "range conflict") || strings.Contains(err.Error(), "on loan") || strings.Contains(err.Error(), "modified") {
 			v3error(w, err.Error(), http.StatusConflict)
 			return
 		}

@@ -57,14 +57,13 @@ func (m *memory) List(resource, show string, start, length int) ([]*Reservation,
 
 		switch show {
 		case "current": // active reservations
-			if now.Before(res.Start) || now.After(res.End) {
+			// in the future or in the past and not on loan
+			if now.Before(res.Start) || (now.After(res.End) && res.Loan == false) {
 				continue
-			}
-			if now.After(res.Start) && (now.Before(res.End) || res.Loan) {
 			}
 
 		case "history": // expired reservations
-			if now.Before(res.End) {
+			if now.Before(res.End) || res.Loan {
 				continue
 			}
 
@@ -119,17 +118,61 @@ func (m *memory) Add(res *Reservation) error {
 }
 
 // replace reservation if no overlap
-// etag in res must match the reservation in ref
 // don't allow:
-// - update of start or end if before now
-// - update of loan
+// - update of start or end if active or expired
+// - update of loan if active
 // - update of ID
-// - update if ref.LastModified newer than res.LastModified
-func (m *memory) Update(ref int, res *Reservation) (*Reservation, error) {
+// - update if res.LastModified newer than req.LastModified
+func (m *memory) Update(ref int, req *Reservation) (*Reservation, error) {
+	res, err := m.GetById(ref)
+	if err != nil {
+		return nil, err
+	}
+
+	if res.LastModified.After(req.LastModified) {
+		return nil, errors.New("modified")
+	}
+
 	m.Lock()
 	defer m.Unlock()
 
-	return nil, nil
+	now := time.Now()
+
+	if res.End.Before(now) && res.Loan == false {
+		return nil, errors.New("already expired")
+	}
+
+	// if active - only allow notes, share and end time changes
+	if res.Start.Before(now) {
+		if req.Resource != res.Resource || req.Start != res.Start {
+			return nil, errors.New("already active")
+		}
+
+		if res.Loan != req.Loan {
+			return nil, errors.New("converting to/from loan")
+		}
+
+		res.LastModified = now
+		res.End = req.End
+		res.Notes = req.Notes
+		res.Share = req.Share
+		res.Name = req.Name
+		res.Initials = req.Initials
+
+		return res, nil
+	}
+
+	res.LastModified = now
+	res.Resource = req.Resource
+	res.Start = req.Start
+	res.End = req.End
+	res.Loan = req.Loan
+	res.Share = req.Share
+	res.Notes = req.Notes
+	res.Name = req.Name
+	res.Initials = req.Initials
+
+	return res, nil
 }
 
 // if reservation start is in the future, just delete it
