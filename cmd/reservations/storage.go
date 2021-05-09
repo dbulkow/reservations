@@ -5,9 +5,9 @@ package main
 import . "github.com/dbulkow/reservations/api"
 
 type Storage interface {
-	Get() (*Reservation, error)
-	List(show string, start, length int) ([]*Reservation, error)
+	GetById(resid int) (*Reservation, error)
+	List(resource, show string, start, length int) ([]*Reservation, error)
 	Add(res *Reservation) error
-	Update(ref int, res *Reservation) error
+	Update(ref int, res *Reservation) (*Reservation, error)
 	Delete(ref int) error
 }

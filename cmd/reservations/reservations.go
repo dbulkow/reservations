@@ -67,12 +67,19 @@ func run(args []string, stdout, stderr io.Writer) error {
 
 	var jobs sync.WaitGroup
 
+	storage, err := NewMemory()
+	if err != nil {
+		return err
+	}
+
+	// XXX load from backing store
+
 	// http routes
 
 	mux := http.NewServeMux()
 	mux.Handle("/", Gzip(logger(http.FileServer(http.FS(assets)))))
 	mux.Handle("/help", Gzip(logger(http.HandlerFunc(usage))))
-	mux.Handle("/v3/reservations/", Gzip(logger(http.StripPrefix("/v3/reservations/", http.HandlerFunc(v3res)))))
+	mux.Handle(v3path, Gzip(logger(http.StripPrefix("/v3/reservations/", http.HandlerFunc(v3res(storage))))))
 
 	srv := &http.Server{
 		Addr:           net.JoinHostPort(addr, port),
