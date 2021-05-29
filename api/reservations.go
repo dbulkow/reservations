@@ -5,8 +5,8 @@ package api
 import "time"
 
 type Reservation struct {
-	ID           int       `json:"-"`
-	LastModified time.Time `json:"-"`
+	ID           int       `json:"id"`
+	LastModified time.Time `json:"lastModified"`
 	Resource     string    `json:"resource"`
 	Start        time.Time `json:"start"`
 	End          time.Time `json:"end"`

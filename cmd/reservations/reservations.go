@@ -67,7 +67,13 @@ func run(args []string, stdout, stderr io.Writer) error {
 
 	var jobs sync.WaitGroup
 
-	storage, err := NewMemory()
+	// filename := fmt.Sprintf("%s-%s", prefix, time.Now().Format("20060102"))
+	file, err := NewJSONL("reservations.jsonl")
+	if err != nil {
+		return err
+	}
+
+	storage, err := NewMemory(file)
 	if err != nil {
 		return err
 	}

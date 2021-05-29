@@ -10,16 +10,46 @@ import (
 	. "github.com/dbulkow/reservations/api"
 )
 
+type BackingStore interface {
+	Add(*Reservation) error
+	Update(int, *Reservation) error
+	Delete(int) error
+	ReadLog(*memory) error
+}
+
 type memory struct {
 	nextID       int
 	reservations []*Reservation
+	store        BackingStore
 	mail         Mail
 	sync.Mutex
 }
 
-func NewMemory( /*backing store*/ ) (*memory, error) {
-	// load from backing store
-	return &memory{reservations: make([]*Reservation, 0), mail: &mail{}}, nil
+type nonstore struct{}
+
+func (s *nonstore) Add(*Reservation) error         { return nil }
+func (s *nonstore) Update(int, *Reservation) error { return nil }
+func (s *nonstore) Delete(int) error               { return nil }
+func (s *nonstore) ReadLog(*memory) error          { return nil }
+
+func NewMemory(store BackingStore) (*memory, error) {
+	m := &memory{
+		reservations: make([]*Reservation, 0),
+		mail:         &mail{},
+	}
+
+	if store == nil {
+		m.store = &nonstore{}
+	} else {
+		m.store = store
+	}
+
+	err := store.ReadLog(m)
+	if err != nil {
+		return nil, err
+	}
+
+	return m, nil
 }
 
 // determine if the two reservation time ranges overlap each other
@@ -107,6 +137,7 @@ func (m *memory) Add(res *Reservation) error {
 	}
 
 	res.ID = m.nextID
+	res.LastModified = time.Now()
 
 	if res.Loan {
 		res.End = res.Start
@@ -114,6 +145,12 @@ func (m *memory) Add(res *Reservation) error {
 
 	m.nextID++
 	m.reservations = append(m.reservations, res)
+
+	err := m.store.Add(res)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -158,6 +195,12 @@ func (m *memory) Update(ref int, req *Reservation) (*Reservation, error) {
 		res.Share = req.Share
 		res.Name = req.Name
 		res.Initials = req.Initials
+		res.LastModified = time.Now()
+
+		err := m.store.Update(res.ID, res)
+		if err != nil {
+			return nil, err
+		}
 
 		return res, nil
 	}
@@ -171,6 +214,12 @@ func (m *memory) Update(ref int, req *Reservation) (*Reservation, error) {
 	res.Notes = req.Notes
 	res.Name = req.Name
 	res.Initials = req.Initials
+	res.LastModified = time.Now()
+
+	err = m.store.Update(res.ID, res)
+	if err != nil {
+		return nil, err
+	}
 
 	return res, nil
 }
@@ -193,17 +242,37 @@ func (m *memory) Delete(ref int) error {
 
 		if r.Start.After(now) {
 			m.reservations = append(m.reservations[:i], m.reservations[i+1:]...)
+
+			err := m.store.Delete(ref)
+			if err != nil {
+				return err
+			}
+
 			return nil
 		}
 
 		if r.Loan {
 			r.Loan = false
 			r.End = now
+			r.LastModified = time.Now()
+
+			err := m.store.Update(r.ID, r)
+			if err != nil {
+				return err
+			}
+
 			return nil
 		}
 
 		if r.Start.Before(now) && r.End.After(now) {
 			r.End = now
+			r.LastModified = time.Now()
+
+			err := m.store.Update(r.ID, r)
+			if err != nil {
+				return err
+			}
+
 			return nil
 		}
 

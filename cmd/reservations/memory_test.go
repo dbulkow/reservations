@@ -18,7 +18,7 @@ type memtestMailer struct {
 func (m *memtestMailer) Valid(string) bool { return m.valid }
 
 func fillMemory(valid bool) (*memory, time.Time) {
-	storage := &memory{}
+	storage := &memory{store: &nonstore{}}
 
 	now := time.Now()
 
