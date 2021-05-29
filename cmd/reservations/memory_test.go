@@ -15,7 +15,8 @@ type memtestMailer struct {
 	valid bool
 }
 
-func (m *memtestMailer) Valid(string) bool { return m.valid }
+func (m *memtestMailer) Valid(string) bool             { return m.valid }
+func (m *memtestMailer) Lookup(string) (string, error) { return "", nil }
 
 func fillMemory(valid bool) (*memory, time.Time) {
 	storage := &memory{store: &nonstore{}}

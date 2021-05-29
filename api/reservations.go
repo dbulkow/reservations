@@ -15,5 +15,5 @@ type Reservation struct {
 	Notes        string    `json:"notes,omitempty"`
 	Name         string    `json:"name"`
 	Initials     string    `json:"initials"`
-	// Email    string    `json:"email"`
+	Email        string    `json:"email"`
 }
