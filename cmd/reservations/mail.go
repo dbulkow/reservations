@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -29,16 +30,16 @@ type Mail interface {
 	Lookup(name string) (string, error)
 }
 
-type email struct {
-	email       string
-	uuid        uuid.UUID // unique path for validation
-	issued      time.Time // when validation link we issued
-	validExpire time.Time // when validation expires
-	valid       bool      // user has responded to validate url
+type Email struct {
+	Email  string    `json:"email"`
+	UUID   uuid.UUID `json:"uuid"`   // unique path for validation
+	Expire time.Time `json:"expire"` // when validation expires
+	Valid  bool      `json:"valid"`  // user has responded to validate url
 }
 
 type mail struct {
-	names map[string]*email
+	names    map[string]*Email
+	filename string
 	sync.Mutex
 }
 
@@ -46,12 +47,58 @@ var MailNameNotFound = errors.New("name not found")
 
 func NewMail(filename string) (*mail, error) {
 	m := &mail{
-		names: make(map[string]*email),
+		names:    make(map[string]*Email),
+		filename: filename,
 	}
 
-	// open/read stored data
+	err := m.readfile()
+	if err != nil {
+		return nil, err
+	}
 
 	return m, nil
+}
+
+func (m *mail) readfile() error {
+	if m.filename == "" {
+		return nil
+	}
+
+	file, err := os.Open(m.filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	return json.NewDecoder(file).Decode(&m.names)
+}
+
+func (m *mail) savefile() error {
+	if m.filename == "" {
+		return nil
+	}
+
+	newfile := m.filename + "-"
+
+	file, err := os.Create(newfile)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	enc := json.NewEncoder(file)
+	enc.SetIndent("", "    ")
+	err = enc.Encode(&m.names)
+	if err != nil {
+		return err
+	}
+
+	err = os.Rename(newfile, m.filename)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // look for validated email by name
@@ -60,7 +107,7 @@ func (m *mail) Valid(name string) bool {
 	defer m.Unlock()
 
 	if em, ok := m.names[name]; ok {
-		if em.valid {
+		if em.Valid {
 			return true
 		}
 	}
@@ -75,8 +122,8 @@ func (m *mail) Lookup(name string) (string, error) {
 	defer m.Unlock()
 
 	if em, ok := m.names[name]; ok {
-		if em.valid {
-			return em.email, nil
+		if em.Valid {
+			return em.Email, nil
 		}
 	}
 
@@ -160,36 +207,41 @@ func (m *mail) rest() http.HandlerFunc {
 			m.Lock()
 			defer m.Unlock()
 
-			var em *email
-			for _, rec := range m.names {
-				if rec.uuid == id {
-					em = rec
+			var email *Email
+			for _, em := range m.names {
+				if em.UUID == id {
+					email = em
 				}
 			}
 
-			if em == nil {
+			if email == nil {
 				serve(w, "notfound.html")
 				return
 			}
 
-			if em.valid {
+			if email.Valid {
 				serve(w, "alreadyvalid.html")
 				return
 			}
 
-			if time.Now().After(em.validExpire) {
+			if time.Now().After(email.Expire) {
 				serve(w, "validexpired.html")
 				return
 			}
 
-			em.valid = true
-			// save mail db to disk
+			email.Valid = true
+
+			err = m.savefile()
+			if err != nil {
+				// log.Printf("mail post: %v", err)
+			}
+
 			serve(w, "valid.html")
 
 		case http.MethodPost:
 			var req = struct {
 				Name  string `json:"name"`
-				Email string `json:"request"`
+				Email string `json:"email"`
 			}{}
 
 			b, err := ioutil.ReadAll(io.LimitReader(r.Body, 65536))
@@ -208,7 +260,7 @@ func (m *mail) rest() http.HandlerFunc {
 			defer m.Unlock()
 
 			if em, ok := m.names[req.Name]; ok {
-				if em.valid {
+				if em.Valid {
 					fail(w, "name already registered", http.StatusConflict)
 					return
 				}
@@ -220,11 +272,10 @@ func (m *mail) rest() http.HandlerFunc {
 				return
 			}
 
-			m.names[req.Name] = &email{
-				email:       req.Email,
-				uuid:        id,
-				issued:      time.Now(),
-				validExpire: time.Now().Add(RegistrationExpire),
+			m.names[req.Name] = &Email{
+				Email:  req.Email,
+				UUID:   id,
+				Expire: time.Now().Add(RegistrationExpire),
 			}
 
 			// delete email registration after it expires
@@ -233,14 +284,23 @@ func (m *mail) rest() http.HandlerFunc {
 				m.Lock()
 				defer m.Unlock()
 				if em, ok := m.names[name]; ok {
-					if em.valid == false {
+					if em.Valid == false {
 						delete(m.names, name)
+
+						err := m.savefile()
+						if err != nil {
+							// log.Printf("mail post: %v", err)
+						}
 					}
 				}
 			}(m, req.Name)
 
 			// send email to address provided
-			// save mail db to disk
+
+			err = m.savefile()
+			if err != nil {
+				// log.Printf("mail post: %v", err)
+			}
 
 			success(w)
 
