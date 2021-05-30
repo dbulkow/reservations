@@ -17,3 +17,8 @@ type Reservation struct {
 	Initials     string    `json:"initials"`
 	Email        string    `json:"email"`
 }
+
+const (
+	V3mail = "/v3/mailverify"
+	V3path = "/v3/reservations/"
+)

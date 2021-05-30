@@ -17,6 +17,7 @@ import (
 	"syscall"
 	"time"
 
+	. "github.com/dbulkow/reservations/api"
 	"github.com/dbulkow/reservations/internal/getenv"
 	. "github.com/dbulkow/reservations/internal/gzip"
 )
@@ -101,7 +102,9 @@ func run(args []string, stdout, stderr io.Writer) error {
 	mux := http.NewServeMux()
 	mux.Handle("/", Gzip(logger(http.FileServer(http.FS(assets)))))
 	mux.Handle("/help", Gzip(logger(http.HandlerFunc(usage))))
-	mux.Handle(v3path, Gzip(logger(http.StripPrefix("/v3/reservations/", http.HandlerFunc(v3res(storage))))))
+	mux.Handle(V3path, Gzip(logger(http.StripPrefix(V3path, http.HandlerFunc(v3res(storage))))))
+	mux.Handle(V3mail, Gzip(logger(mail.rest())))
+	mux.Handle(V3mail+"/", Gzip(logger(mail.rest())))
 
 	srv := &http.Server{
 		Addr:           net.JoinHostPort(addr, port),

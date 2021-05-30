@@ -3,11 +3,14 @@
 package main
 
 import (
+	"bufio"
+	"compress/gzip"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net"
 	"net/http"
 	"net/smtp"
@@ -178,7 +181,6 @@ func (m *mail) rest() http.HandlerFunc {
 	success := func(w http.ResponseWriter) {
 		var resp = struct {
 			Status string `json:"status"`
-			Error  string `json:"error"`
 		}{
 			Status: "Success",
 		}
@@ -190,6 +192,7 @@ func (m *mail) rest() http.HandlerFunc {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
 		w.Write(b)
 	}
 
@@ -224,32 +227,38 @@ func (m *mail) rest() http.HandlerFunc {
 			defer m.Unlock()
 
 			var email *Email
-			for _, em := range m.names {
+			var name string
+			for n, em := range m.names {
 				if em.UUID == id {
 					email = em
+					name = n
 				}
 			}
 
 			if email == nil {
+				log.Printf("email for id %s not found", id.String())
 				serve(w, "notfound.html")
 				return
 			}
 
 			if email.Valid {
+				log.Printf("email %s already valid", email.Email)
 				serve(w, "alreadyvalid.html")
 				return
 			}
 
 			if time.Now().After(email.Expire) {
+				log.Printf("email %s validation expired", email.Email)
 				serve(w, "validexpired.html")
 				return
 			}
 
 			email.Valid = true
+			log.Printf("email verified (%s=%s)", name, email.Email)
 
 			err = m.savefile()
 			if err != nil {
-				// log.Printf("mail post: %v", err)
+				log.Printf("mail post: %v", err)
 			}
 
 			serve(w, "valid.html")
@@ -260,7 +269,17 @@ func (m *mail) rest() http.HandlerFunc {
 				Email string `json:"email"`
 			}{}
 
-			b, err := ioutil.ReadAll(io.LimitReader(r.Body, 65536))
+			var reader io.Reader
+			var err error
+
+			switch r.Header.Get("Content-Encoding") {
+			case "gzip":
+				reader, err = gzip.NewReader(io.LimitReader(r.Body, 65536))
+			default:
+				reader = bufio.NewReader(io.LimitReader(r.Body, 65536))
+			}
+
+			b, err := ioutil.ReadAll(reader)
 			if err != nil {
 				fail(w, "payload read error", http.StatusBadRequest)
 				return
@@ -309,6 +328,13 @@ func (m *mail) rest() http.HandlerFunc {
 			}
 
 			success(w)
+
+		case http.MethodPut:
+			// allow email updates?
+			// how to close the loop - send an email to old address first?
+			// send email to new address, delete old one after verified?
+			// need to avoid users changing email for others
+			// would like this to remain self-service
 
 		default:
 			http.Error(w, fmt.Sprintf("method \"%s\" not supported", r.Method), http.StatusMethodNotAllowed)

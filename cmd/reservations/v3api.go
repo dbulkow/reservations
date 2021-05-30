@@ -16,11 +16,8 @@ import (
 )
 
 var isNumeric = regexp.MustCompile("[0-9]+")
-var v3path = "/v3/reservations/"
 
-const (
-	v3MaxRead = 128 * 1024
-)
+const v3MaxRead = 128 * 1024
 
 func v3res(storage Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -278,7 +275,7 @@ func v3post(storage Storage, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	location := fmt.Sprintf("%s%d", v3path, req.ID)
+	location := fmt.Sprintf("%s%d", V3path, req.ID)
 
 	reply.Status = "Success"
 	reply.Location = location
