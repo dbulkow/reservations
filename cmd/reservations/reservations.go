@@ -33,12 +33,17 @@ func run(args []string, stdout, stderr io.Writer) error {
 
 		port = env.Get("PORT", "8080")
 		addr = env.Get("ADDR", "localhost")
+
+		datafile = env.Get("DATA", "reservations.jsonl")
+		mailfile = env.Get("MAIL", "mail.json")
 	)
 
 	flags := flag.NewFlagSet(args[0], flag.ExitOnError)
 
 	flags.StringVar(&port, "port", port, "REST/HTTP port number")
 	flags.StringVar(&addr, "addr", addr, "Listen address")
+	flags.StringVar(&datafile, "data", datafile, "Backing store filename")
+	flags.StringVar(&mailfile, "mail", mailfile, "Mail registration filename")
 
 	flags.Usage = func() {
 		fmt.Fprintf(stderr, "Usage: %s\n", args[0])
@@ -48,7 +53,11 @@ func run(args []string, stdout, stderr io.Writer) error {
         HTTP listen port
   RESERVATIONS_ADDR = %s
         Network listen address
-`, port, addr)
+  RESERVATIONS_DATA = %s
+        Backing store filename
+  RESERVATIONS_MAIL = %s
+        Mail registrations filename
+`, port, addr, datafile, mailfile)
 		flags.PrintDefaults()
 	}
 
@@ -70,12 +79,17 @@ func run(args []string, stdout, stderr io.Writer) error {
 	var jobs sync.WaitGroup
 
 	// filename := fmt.Sprintf("%s-%s", prefix, time.Now().Format("20060102"))
-	file, err := NewJSONL("reservations.jsonl")
+	file, err := NewJSONL(datafile)
 	if err != nil {
 		return err
 	}
 
-	storage, err := NewMemory(file)
+	mail, err := NewMail(mailfile, "" /*server*/, "" /*port*/, "" /*from*/)
+	if err != nil {
+		return err
+	}
+
+	storage, err := NewMemory(file, mail)
 	if err != nil {
 		return err
 	}

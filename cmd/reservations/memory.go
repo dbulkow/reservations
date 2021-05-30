@@ -32,10 +32,10 @@ func (s *nonstore) Update(int, *Reservation) error { return nil }
 func (s *nonstore) Delete(int) error               { return nil }
 func (s *nonstore) ReadLog(*memory) error          { return nil }
 
-func NewMemory(store BackingStore) (*memory, error) {
+func NewMemory(store BackingStore, mail Mail) (*memory, error) {
 	m := &memory{
 		reservations: make([]*Reservation, 0),
-		mail:         &mail{},
+		mail:         mail,
 	}
 
 	if store == nil {
@@ -65,6 +65,8 @@ func (m *memory) GetById(resid int) (*Reservation, error) {
 	for i := len(m.reservations) - 1; i >= 0; i-- {
 		res := m.reservations[i]
 		if res.ID == resid {
+			// string is empty on error, which is what we want
+			res.Email, _ = m.mail.Lookup(res.Name)
 			return res, nil
 		}
 	}
@@ -107,6 +109,9 @@ func (m *memory) List(resource, show string, start, length int) ([]*Reservation,
 			}
 		}
 
+		// string is empty on error, which is what we want
+		res.Email, _ = m.mail.Lookup(res.Name)
+
 		response = append(response, res)
 	}
 
@@ -137,6 +142,7 @@ func (m *memory) Add(res *Reservation) error {
 	}
 
 	res.ID = m.nextID
+	res.Email = ""
 	res.LastModified = time.Now()
 
 	if res.Loan {
@@ -195,6 +201,7 @@ func (m *memory) Update(ref int, req *Reservation) (*Reservation, error) {
 		res.Share = req.Share
 		res.Name = req.Name
 		res.Initials = req.Initials
+		res.Email = ""
 		res.LastModified = time.Now()
 
 		err := m.store.Update(res.ID, res)
@@ -214,6 +221,7 @@ func (m *memory) Update(ref int, req *Reservation) (*Reservation, error) {
 	res.Notes = req.Notes
 	res.Name = req.Name
 	res.Initials = req.Initials
+	res.Email = ""
 	res.LastModified = time.Now()
 
 	err = m.store.Update(res.ID, res)
