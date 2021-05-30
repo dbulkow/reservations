@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
+	"net/smtp"
 	"os"
 	"strings"
 	"sync"
@@ -40,15 +42,21 @@ type Email struct {
 type mail struct {
 	names    map[string]*Email
 	filename string
+	server   string // mail server address
+	port     string // mail server port
+	from     string // sender email address
 	sync.Mutex
 }
 
 var MailNameNotFound = errors.New("name not found")
 
-func NewMail(filename string) (*mail, error) {
+func NewMail(filename, server, port, from string) (*mail, error) {
 	m := &mail{
 		names:    make(map[string]*Email),
 		filename: filename,
+		server:   server,
+		port:     port,
+		from:     from,
 	}
 
 	err := m.readfile()
@@ -266,6 +274,13 @@ func (m *mail) rest() http.HandlerFunc {
 				}
 			}
 
+			for _, em := range m.names {
+				if em.Email == req.Email {
+					fail(w, "email already registered", http.StatusConflict)
+					return
+				}
+			}
+
 			id, err := uuid.NewRandom()
 			if err != nil {
 				fail(w, "internal error", http.StatusInternalServerError)
@@ -278,24 +293,7 @@ func (m *mail) rest() http.HandlerFunc {
 				Expire: time.Now().Add(RegistrationExpire),
 			}
 
-			// delete email registration after it expires
-			go func(m *mail, name string) {
-				time.Sleep(RegistrationExpire)
-				m.Lock()
-				defer m.Unlock()
-				if em, ok := m.names[name]; ok {
-					if em.Valid == false {
-						delete(m.names, name)
-
-						err := m.savefile()
-						if err != nil {
-							// log.Printf("mail post: %v", err)
-						}
-					}
-				}
-			}(m, req.Name)
-
-			// send email to address provided
+			m.sendmail(req.Email, id.String())
 
 			err = m.savefile()
 			if err != nil {
@@ -309,4 +307,54 @@ func (m *mail) rest() http.HandlerFunc {
 			return
 		}
 	}
+}
+
+func (m *mail) sendmail(target, uuid string) error {
+	if m.server == "" {
+		return nil
+	}
+
+	body := fmt.Sprintf(`To: %s\r
+Subject: Please verify your email address\r
+\r
+Someone has registered this email address for use in the reservation\r
+service. If you received this mail in error, please ignore and your\r
+email will not be used.\r
+\r
+Please vist the following URL to verify:\r
+\r
+    https://reservations.company.com/mail/%s\r
+`, target, uuid)
+
+	c, err := smtp.Dial(net.JoinHostPort(m.server, m.port))
+	if err != nil {
+		return err
+	}
+	defer c.Close()
+
+	err = c.Mail(m.from)
+	if err != nil {
+		return err
+	}
+
+	err = c.Rcpt(target)
+	if err != nil {
+		// log.Printf("unable to add \"%s\" as recipient: %v", r, err)
+	}
+
+	// Send the mail body
+	wc, err := c.Data()
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprint(wc, body)
+	if err != nil {
+		return err
+	}
+	if err := wc.Close(); err != nil {
+		return err
+	}
+
+	// Sends the QUIT command and close the connection
+	return c.Quit()
 }
