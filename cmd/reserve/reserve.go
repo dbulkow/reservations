@@ -24,6 +24,7 @@ environment:
     RESERVE_CONFIG config filename
                    RESERVE_CONFIG_VALUE
 `,
+	PersistentPreRunE: validURL,
 }
 
 var service *url.URL
@@ -72,7 +73,6 @@ func main() {
 			fmt.Printf("Git Commit Hash: %s\n", GitHash)
 			fmt.Printf("Build Time:      %s\n", BuildTime)
 		},
-		PersistentPreRunE: validURL,
 	}
 
 	RootCmd.AddCommand(versionCmd)
