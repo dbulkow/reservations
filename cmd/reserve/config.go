@@ -4,15 +4,21 @@ package main
 
 import (
 	"bufio"
+	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"regexp"
 	"runtime"
 	"strings"
+	"time"
 
+	. "github.com/dbulkow/reservations/api"
 	"github.com/spf13/cobra"
 )
 
@@ -81,6 +87,8 @@ func config(cmd *cobra.Command, args []string) error {
 
 	reader := bufio.NewReader(os.Stdin)
 
+	oldname := cfg.Name
+
 	if cfg.Name == "" {
 		fmt.Print("Full Name     (First Last): ")
 	} else {
@@ -95,6 +103,8 @@ func config(cmd *cobra.Command, args []string) error {
 	if cfg.Name == "" {
 		return errors.New("Name not entered")
 	}
+
+	oldmail := cfg.Mail
 
 	if cfg.Mail == "" {
 		fmt.Print("Email Address: ")
@@ -139,6 +149,86 @@ func config(cmd *cobra.Command, args []string) error {
 
 	if err := ioutil.WriteFile(conffile, b, 0666); err != nil {
 		return fmt.Errorf("Unable to write config data %v", err)
+	}
+
+	if oldname != cfg.Name || oldmail != cfg.Mail {
+		err := registerMail(cfg.Name, cfg.Mail)
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("\nregistered %s\n", cfg.Mail)
+	}
+
+	return nil
+}
+
+const MaxRead = 1024 * 1024
+
+func registerMail(name, email string) error {
+	req := struct {
+		Name  string `json:"name"`
+		Email string `json:"email"`
+	}{
+		Name:  name,
+		Email: email,
+	}
+
+	buf, err := json.Marshal(&req)
+	if err != nil {
+		return err
+	}
+
+	b := bytes.NewReader(buf)
+
+	service.Path = V3mail
+	r, err := http.NewRequest(http.MethodPost, service.String(), b)
+	if err != nil {
+		return fmt.Errorf("new request: %v", err)
+	}
+	r.Header.Set("Content-Type", "application/json")
+	r.Header.Set("Accept-Encoding", "gzip")
+
+	client := &http.Client{
+		Timeout: time.Duration(10 * time.Second),
+	}
+
+	resp, err := client.Do(r)
+	if err != nil {
+		return fmt.Errorf("http: %v", err)
+	}
+	if resp == nil {
+		return fmt.Errorf("empty response")
+	}
+	defer func() {
+		io.Copy(ioutil.Discard, io.LimitReader(resp.Body, MaxRead))
+		resp.Body.Close()
+	}()
+
+	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusConflict {
+		return fmt.Errorf("response status %s", resp.Status)
+	}
+
+	var reader io.Reader
+	switch resp.Header.Get("Content-Encoding") {
+	case "gzip":
+		reader, err = gzip.NewReader(io.LimitReader(resp.Body, MaxRead))
+	default:
+		reader = bufio.NewReader(io.LimitReader(resp.Body, MaxRead))
+	}
+
+	rpy := struct {
+		Status string `json:"status"`
+		Error  string `json:"error"`
+	}{}
+
+	err = json.NewDecoder(reader).Decode(&rpy)
+	if err != nil {
+		return fmt.Errorf("decode: %v", err)
+	}
+
+	if rpy.Status != "Success" {
+		return fmt.Errorf("Error: %s", rpy.Error)
 	}
 
 	return nil
