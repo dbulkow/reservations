@@ -59,9 +59,17 @@ func NewMail(filename, server, port, from string) (*mail, error) {
 		from:     from,
 	}
 
-	err := m.readfile()
+	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE, 0600)
 	if err != nil {
 		return nil, err
+	}
+	file.Close()
+
+	err = m.readfile()
+	if err != nil {
+		if err != io.EOF {
+			return nil, err
+		}
 	}
 
 	return m, nil
