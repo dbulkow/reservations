@@ -25,6 +25,8 @@ import (
 //go:embed favicon.ico
 var assets embed.FS
 
+//go:generate ./version.sh
+
 func run(args []string, stdout, stderr io.Writer) error {
 	var (
 		env = getenv.NewEnv("RESERVATIONS")
@@ -57,8 +59,8 @@ func run(args []string, stdout, stderr io.Writer) error {
 
 	// report version details
 
-	log.Printf("git commit hash: %s\n", "xxx")
-	log.Printf("build time:      %s\n", "xxx")
+	log.Printf("git commit hash: %s\n", GitHash)
+	log.Printf("build time:      %s\n", BuildTime)
 
 	// server initialization
 
