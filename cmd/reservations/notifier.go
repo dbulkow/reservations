@@ -1,3 +1,5 @@
+/* Copyright (c) 2021 David Bulkow */
+
 package main
 
 // send email once a week to each user with active loans and Reservations
