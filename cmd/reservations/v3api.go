@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -169,21 +170,19 @@ func v3get(storage Storage, w http.ResponseWriter, r *http.Request) {
 		q        = r.URL.Query()
 		show     = q.Get("show")
 		resource = q.Get("resource")
-		count    = q.Get("n")
-		last     = q.Get("last")
 	)
 
-	start, err := strconv.Atoi(last)
+	start, err := strconv.Atoi(q.Get("start"))
 	if err != nil {
 		start = 0
 	}
 
-	length, err := strconv.Atoi(count)
+	limit, err := strconv.Atoi(q.Get("limit"))
 	if err != nil {
-		length = 0
+		limit = 0
 	}
 
-	res, err := storage.List(resource, show, start, length)
+	res, err := storage.List(resource, show, start, limit)
 	if err != nil {
 		v3error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -196,11 +195,32 @@ func v3get(storage Storage, w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	u, err := url.Parse(r.Host + r.RequestURI)
+	if err != nil {
+		v3error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	q = u.Query()
+
+	if q.Get("start") != "" || q.Get("limit") != "" {
+		if r.Method == http.MethodHead {
+			q.Set("start", "0")
+		} else {
+			q.Set("start", strconv.Itoa(res[len(res)-1].ID))
+		}
+		q.Set("limit", q.Get("limit"))
+		u.RawQuery = q.Encode()
+	}
+
+	next := u.String()
+
 	reply := struct {
 		Status       string         `json:"status"`
-		Reservations []*Reservation `json:"reservations,omitempty"`
+		Next         string         `json:"next"`
+		Reservations []*Reservation `json:"reservations"`
 	}{
 		Status:       "Success",
+		Next:         next,
 		Reservations: res,
 	}
 
@@ -213,6 +233,8 @@ func v3get(storage Storage, w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Content-Length", strconv.Itoa(len(b)))
 	w.Header().Set("Last-Modified", modified.Format(time.RFC1123))
+	w.Header().Set("X-Reservation-Count", strconv.Itoa(len(res)))
+	w.Header().Set("X-Next-Reservation", next)
 
 	since := r.Header.Get("If-Modified-Since")
 	t, err := time.Parse(time.RFC1123, since)
@@ -275,7 +297,7 @@ func v3post(storage Storage, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	location := fmt.Sprintf("%s%d", V3path, req.ID)
+	location := fmt.Sprintf("%s%d", V3api, req.ID)
 
 	reply.Status = "Success"
 	reply.Location = location

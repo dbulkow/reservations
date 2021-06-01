@@ -276,6 +276,7 @@ func TestMemoryAddExistingLoan(t *testing.T) {
 	}
 }
 
+/*
 func TestMemoryAddUnknownName(t *testing.T) {
 	storage, now := fillMemory(false)
 
@@ -295,7 +296,7 @@ func TestMemoryAddUnknownName(t *testing.T) {
 		t.Fatalf("expected an error with \"unknown name\" got \"%s\"", err.Error())
 	}
 }
-
+*/
 func TestMemoryUpdate(t *testing.T) {
 	storage, now := fillMemory(true)
 

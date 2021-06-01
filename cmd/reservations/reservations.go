@@ -19,7 +19,7 @@ import (
 
 	. "github.com/dbulkow/reservations/api"
 	"github.com/dbulkow/reservations/internal/getenv"
-	. "github.com/dbulkow/reservations/internal/gzip"
+	_ "github.com/dbulkow/reservations/internal/gzip"
 )
 
 // favicon from from http://clipartbarn.com/clock-clip-art_36285/
@@ -100,11 +100,11 @@ func run(args []string, stdout, stderr io.Writer) error {
 	// http routes
 
 	mux := http.NewServeMux()
-	mux.Handle("/", Gzip(logger(http.FileServer(http.FS(assets)))))
-	mux.Handle("/help", Gzip(logger(http.HandlerFunc(usage))))
-	mux.Handle(V3path, Gzip(logger(http.StripPrefix(V3path, http.HandlerFunc(v3res(storage))))))
-	mux.Handle(V3mail, Gzip(logger(mail.rest())))
-	mux.Handle(V3mail+"/", Gzip(logger(mail.rest())))
+	mux.Handle("/", logger(http.FileServer(http.FS(assets))))
+	mux.Handle("/help", logger(http.HandlerFunc(usage)))
+	mux.Handle(V3api, logger(http.StripPrefix(V3api, http.HandlerFunc(v3res(storage)))))
+	mux.Handle(V3mail, logger(mail.rest()))
+	mux.Handle(V3mail+"/", logger(mail.rest()))
 
 	srv := &http.Server{
 		Addr:           net.JoinHostPort(addr, port),

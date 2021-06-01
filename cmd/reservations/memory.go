@@ -87,6 +87,14 @@ func (m *memory) List(resource, show string, start, length int) ([]*Reservation,
 			continue
 		}
 
+		if start > 0 && res.ID < start {
+			continue
+		}
+
+		if length > 0 && len(response) >= length {
+			return response, nil
+		}
+
 		switch show {
 		case "current": // active reservations
 			// in the future or in the past and not on loan
@@ -123,9 +131,10 @@ func (m *memory) Add(res *Reservation) error {
 	m.Lock()
 	defer m.Unlock()
 
-	if m.mail.Valid(res.Name) == false {
-		return errors.New("unknown name")
-	}
+	// let's not be so restrictive - maybe limit unregistered user to short reservations (no loans)
+	// if m.mail.Valid(res.Name) == false {
+	// 	return errors.New("unknown name")
+	// }
 
 	for _, r := range m.reservations {
 		if r.Resource != res.Resource {

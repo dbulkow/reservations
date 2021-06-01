@@ -20,5 +20,5 @@ type Reservation struct {
 
 const (
 	V3mail = "/v3/mailverify"
-	V3path = "/v3/reservations/"
+	V3api  = "/v3/reservations/"
 )
