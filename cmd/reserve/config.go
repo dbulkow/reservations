@@ -51,6 +51,22 @@ func ConfFile() string {
 	return os.Getenv("HOME") + "/.config/reserve.conf"
 }
 
+func getConfig(conffile string) (*Config, error) {
+	var cfg = &Config{}
+
+	b, err := ioutil.ReadFile(conffile)
+	if err != nil && !os.IsNotExist(err) {
+		return nil, err
+	}
+
+	err = json.Unmarshal(b, cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return cfg, nil
+}
+
 func config(cmd *cobra.Command, args []string) error {
 	conffile := cmd.Flag("config").Value.String()
 
