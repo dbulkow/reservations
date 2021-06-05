@@ -53,7 +53,7 @@ sort order, list the history of a resource and more.
 	listCmd.Flags().BoolVarP(&long, "long", "l", false, "Long listing")
 	listCmd.Flags().BoolVarP(&quiet, "quiet", "q", false, "Don't display header")
 	listCmd.Flags().BoolVarP(&jsonOutput, "json", "j", false, "JSON output")
-	listCmd.Flags().StringVar(&sortby, "sort-by", "resource", "Sort by [date, resource, name]")
+	listCmd.Flags().StringVar(&sortby, "sort-by", "resource", "Sort by [date, resource, name, id]")
 	listCmd.Flags().BoolVarP(&showres, "showres", "r", false, "Show reservation number")
 	listCmd.Flags().BoolVar(&history, "history", false, "Include reservation history")
 	listCmd.Flags().BoolVarP(&mine, "mine", "m", false, "Show your reservations only")
@@ -227,6 +227,8 @@ func list(cmd *cobra.Command, args []string) error {
 		sort.Sort(byName(res))
 	case "date":
 		sort.Sort(byDate(res))
+	case "id":
+		sort.Sort(byID(res))
 	}
 
 	if !quiet && !jsonOutput {

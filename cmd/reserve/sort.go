@@ -8,6 +8,14 @@ import (
 	. "github.com/dbulkow/reservations/api"
 )
 
+type byID []*Reservation
+
+func (b byID) Len() int      { return len(b) }
+func (b byID) Swap(i, j int) { b[i], b[j] = b[j], b[i] }
+func (b byID) Less(i, j int) bool {
+	return b[i].ID < b[j].ID
+}
+
 type byDate []*Reservation
 
 func (b byDate) Len() int      { return len(b) }
