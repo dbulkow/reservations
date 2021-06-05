@@ -5,7 +5,6 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"compress/gzip"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -225,20 +224,12 @@ func registerMail(name, email string) error {
 		return fmt.Errorf("response status %s", resp.Status)
 	}
 
-	var reader io.Reader
-	switch resp.Header.Get("Content-Encoding") {
-	case "gzip":
-		reader, err = gzip.NewReader(io.LimitReader(resp.Body, MaxRead))
-	default:
-		reader = bufio.NewReader(io.LimitReader(resp.Body, MaxRead))
-	}
-
 	rpy := struct {
 		Status string `json:"status"`
 		Error  string `json:"error"`
 	}{}
 
-	err = json.NewDecoder(reader).Decode(&rpy)
+	err = json.NewDecoder(io.LimitReader(resp.Body, MaxRead)).Decode(&rpy)
 	if err != nil {
 		return fmt.Errorf("decode: %v", err)
 	}
