@@ -106,7 +106,7 @@ func list(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("new request: %v", err)
 		}
 
-		if true {
+		if false {
 			in, err := httputil.DumpRequest(r, false)
 			if err != nil {
 				log.Println(err)
@@ -127,7 +127,7 @@ func list(cmd *cobra.Command, args []string) error {
 			resp.Body.Close()
 		}()
 
-		if true {
+		if false {
 			out, err := httputil.DumpResponse(resp, false)
 			if err != nil {
 				log.Println(err)
