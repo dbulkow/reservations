@@ -15,7 +15,6 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
-	"time"
 
 	. "github.com/dbulkow/reservations/api"
 	"github.com/spf13/cobra"
@@ -203,10 +202,6 @@ func registerMail(name, email string) error {
 	}
 	r.Header.Set("Content-Type", "application/json")
 	r.Header.Set("Accept-Encoding", "gzip")
-
-	client := &http.Client{
-		Timeout: time.Duration(10 * time.Second),
-	}
 
 	resp, err := client.Do(r)
 	if err != nil {

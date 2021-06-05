@@ -15,7 +15,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	. "github.com/dbulkow/reservations/api"
 	"github.com/spf13/cobra"
@@ -76,10 +75,6 @@ func list(cmd *cobra.Command, args []string) error {
 	cfg, err := getConfig(conffile)
 	if err != nil {
 		return fmt.Errorf("Unable to read config (%v).  Run with 'config' to initialize.", err)
-	}
-
-	client := &http.Client{
-		Timeout: time.Duration(10 * time.Second),
 	}
 
 	service.Path = V3api

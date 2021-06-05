@@ -4,9 +4,11 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -27,7 +29,12 @@ environment:
 	PersistentPreRunE: validURL,
 }
 
-var service *url.URL
+var (
+	service *url.URL
+	client  = &http.Client{
+		Timeout: time.Duration(10 * time.Second),
+	}
+)
 
 func validURL(cmd *cobra.Command, args []string) error {
 	addr := cmd.Flag("url").Value.String()
