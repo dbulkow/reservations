@@ -29,6 +29,7 @@ var (
 	sortby     string
 	showres    bool
 	history    bool
+	showall    bool
 	mine       bool
 	numres     int
 )
@@ -56,6 +57,7 @@ sort order, list the history of a resource and more.
 	listCmd.Flags().StringVar(&sortby, "sort-by", "resource", "Sort by [date, resource, name, id]")
 	listCmd.Flags().BoolVarP(&showres, "showres", "r", false, "Show reservation number")
 	listCmd.Flags().BoolVar(&history, "history", false, "Include reservation history")
+	listCmd.Flags().BoolVar(&showall, "all", false, "Show all reservations, history, current, future")
 	listCmd.Flags().BoolVarP(&mine, "mine", "m", false, "Show your reservations only")
 	listCmd.Flags().BoolVarP(&current, "current", "c", false, "List active reservations")
 	listCmd.Flags().IntVarP(&numres, "num", "n", 50, "Number of reservations to retrieve each request")
@@ -92,6 +94,8 @@ func list(cmd *cobra.Command, args []string) error {
 		q.Set("show", "current")
 	} else if history {
 		q.Set("show", "history")
+	} else if showall {
+		q.Set("show", "all")
 	}
 
 	q.Set("limit", strconv.Itoa(numres))
@@ -174,7 +178,7 @@ func list(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	filter := ""
+	var filter string
 	if len(args) > 0 {
 		filter = args[0]
 	}
@@ -196,9 +200,6 @@ func list(cmd *cobra.Command, args []string) error {
 				continue
 			}
 			if mine && filter == "" && r.Name != cfg.Name {
-				continue
-			}
-			if !history && !r.Loan && r.End.Before(time.Now()) {
 				continue
 			}
 			id := fmt.Sprintf("%d", r.ID)
@@ -245,7 +246,7 @@ func list(cmd *cobra.Command, args []string) error {
 			}
 			fmt.Printf("%-*s ", namelen, "Name")
 			if hasDates {
-				fmt.Printf(" %-*s   %-*s\n", datelen, "Start", datelen, "End")
+				fmt.Printf("%-*s   %-*s\n", datelen, "Start", datelen, "End")
 			} else {
 				fmt.Println(" Loan")
 			}
@@ -277,9 +278,6 @@ func list(cmd *cobra.Command, args []string) error {
 		if mine && filter == "" && r.Name != cfg.Name {
 			continue
 		}
-		if !history && !r.Loan && r.End.Before(time.Now()) {
-			continue
-		}
 		start := r.Start.Local().Format(datefmt)
 		end := r.End.Local().Format(datefmt)
 		if long {
@@ -293,7 +291,12 @@ func list(cmd *cobra.Command, args []string) error {
 			} else {
 				fmt.Printf("\tReservation: %s - %s\n", start, end)
 			}
-			fmt.Printf("\t       Name: %s (%s)\n", r.Name, r.Email)
+			fmt.Printf("\t       Name: %s", r.Name)
+			if r.Email == "" {
+				fmt.Printf("\n")
+			} else {
+				fmt.Printf("(%s)\n", r.Email)
+			}
 			if r.Notes != "" {
 				fmt.Printf("\t      Notes: %s\n", r.Notes)
 			}
