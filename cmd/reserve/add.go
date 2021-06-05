@@ -10,6 +10,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"time"
 
 	. "github.com/dbulkow/reservations/api"
@@ -99,7 +100,26 @@ func add(cmd *cobra.Command, args []string) error {
 	end := time.Now()
 
 	if !onloan {
-		// parse args
+		start, end, err = ParseRange(time.Now(), args[1:])
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "parsetime: %v\n", err)
+			if perr, ok := err.(*ParseError); ok {
+				if perr.token == nil {
+					goto done
+				}
+				tokens, _ := tokenize(args[1:])
+				for i, t := range tokens.tokens {
+					if perr.token.count == i+1 {
+						fmt.Printf("[%s] ", t.Val)
+					} else {
+						fmt.Printf("%s ", t.Val)
+					}
+				}
+				fmt.Println()
+			}
+		done:
+			os.Exit(1)
+		}
 
 		if dryrun {
 			fmt.Println(start, end)
