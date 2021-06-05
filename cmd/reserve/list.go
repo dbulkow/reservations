@@ -181,7 +181,7 @@ func list(cmd *cobra.Command, args []string) error {
 	datefmt := "Jan _2 15:04 2006"
 
 	var (
-		reslen   = len("Res")
+		reslen   = len("ID")
 		machlen  = len("Resource")
 		namelen  = len("Name")
 		datelen  = len(datefmt)
@@ -233,7 +233,7 @@ func list(cmd *cobra.Command, args []string) error {
 			fmt.Println("-----------          -------")
 		} else {
 			if showres {
-				fmt.Printf("%-*s ", reslen, "Res")
+				fmt.Printf("%-*s ", reslen, "ID")
 			}
 			fmt.Printf("%-*s ", machlen, "Resource")
 			if hasShare {
