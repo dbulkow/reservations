@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"regexp"
 	"strconv"
@@ -25,6 +27,15 @@ func v3res(storage Storage) http.HandlerFunc {
 		if r.URL.Path == "command" {
 			v3cmd(storage, w, r)
 			return
+		}
+
+		if false {
+			in, err := httputil.DumpRequest(r, false)
+			if err != nil {
+				log.Println(err)
+			}
+
+			fmt.Println(string(in))
 		}
 
 		var ref int

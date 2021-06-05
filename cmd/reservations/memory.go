@@ -4,6 +4,7 @@ package main
 
 import (
 	"errors"
+	"log"
 	"sync"
 	"time"
 
@@ -265,6 +266,8 @@ func (m *memory) Delete(ref int) error {
 				return err
 			}
 
+			log.Println("deleted", ref)
+
 			return nil
 		}
 
@@ -278,6 +281,8 @@ func (m *memory) Delete(ref int) error {
 				return err
 			}
 
+			log.Println("ended", ref)
+
 			return nil
 		}
 
@@ -289,6 +294,8 @@ func (m *memory) Delete(ref int) error {
 			if err != nil {
 				return err
 			}
+
+			log.Println("ended", ref)
 
 			return nil
 		}
