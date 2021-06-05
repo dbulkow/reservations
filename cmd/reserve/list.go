@@ -11,7 +11,9 @@ import (
 	"log"
 	"net/http"
 	"net/http/httputil"
+	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -28,6 +30,7 @@ var (
 	showres    bool
 	history    bool
 	mine       bool
+	numres     int
 )
 
 func init() {
@@ -55,6 +58,7 @@ sort order, list the history of a resource and more.
 	listCmd.Flags().BoolVar(&history, "history", false, "Include reservation history")
 	listCmd.Flags().BoolVarP(&mine, "mine", "m", false, "Show your reservations only")
 	listCmd.Flags().BoolVarP(&current, "current", "c", false, "List active reservations")
+	listCmd.Flags().IntVarP(&numres, "num", "n", 50, "Number of reservations to retrieve each request")
 
 	RootCmd.AddCommand(listCmd)
 }
@@ -77,7 +81,12 @@ func list(cmd *cobra.Command, args []string) error {
 	}
 
 	service.Path = V3api
-	q := service.Query()
+
+	u, err := url.Parse(service.String())
+	if err != nil {
+		return err
+	}
+	q := u.Query()
 
 	if current {
 		q.Set("show", "current")
@@ -85,65 +94,84 @@ func list(cmd *cobra.Command, args []string) error {
 		q.Set("show", "history")
 	}
 
-	service.RawQuery = q.Encode()
+	q.Set("limit", strconv.Itoa(numres))
+	q.Set("start", "0")
+	u.RawQuery = q.Encode()
 
-	r, err := http.NewRequest(http.MethodGet, service.String(), nil)
-	if err != nil {
-		return fmt.Errorf("new request: %v", err)
-	}
+	var res []*Reservation
 
-	if false {
-		in, err := httputil.DumpRequest(r, false)
+	for {
+		r, err := http.NewRequest(http.MethodGet, u.String(), nil)
 		if err != nil {
-			log.Println(err)
+			return fmt.Errorf("new request: %v", err)
 		}
 
-		fmt.Println(string(in))
-	}
+		if true {
+			in, err := httputil.DumpRequest(r, false)
+			if err != nil {
+				log.Println(err)
+			}
 
-	resp, err := client.Do(r)
-	if err != nil {
-		return fmt.Errorf("http: %v", err)
-	}
-	if resp == nil {
-		return fmt.Errorf("empty response")
-	}
-	defer func() {
-		io.Copy(ioutil.Discard, io.LimitReader(resp.Body, MaxRead))
-		resp.Body.Close()
-	}()
-
-	if true {
-		out, err := httputil.DumpResponse(resp, true)
-		if err != nil {
-			log.Println(err)
+			fmt.Println(string(in))
 		}
 
-		fmt.Println(string(out))
-	}
+		resp, err := client.Do(r)
+		if err != nil {
+			return fmt.Errorf("http: %v", err)
+		}
+		if resp == nil {
+			return fmt.Errorf("empty response")
+		}
+		defer func() {
+			io.Copy(ioutil.Discard, io.LimitReader(resp.Body, MaxRead))
+			resp.Body.Close()
+		}()
 
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("response status: %s", resp.Status)
-	}
+		if true {
+			out, err := httputil.DumpResponse(resp, false)
+			if err != nil {
+				log.Println(err)
+			}
 
-	rpy := struct {
-		Status       string         `json:"status"`
-		Error        string         `json:"error"`
-		Reservations []*Reservation `json:"reservations"`
-	}{}
+			fmt.Println(string(out))
+		}
 
-	err = json.NewDecoder(io.LimitReader(resp.Body, MaxRead)).Decode(&rpy)
-	if err != nil {
-		return fmt.Errorf("decode: %v", err)
-	}
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("response status: %s", resp.Status)
+		}
 
-	if rpy.Status != "Success" {
-		return errors.New(rpy.Error)
-	}
+		rpy := struct {
+			Status       string         `json:"status"`
+			Error        string         `json:"error"`
+			Reservations []*Reservation `json:"reservations"`
+		}{}
 
-	next := resp.Header.Get("X-Next-Reservation")
-	if next == "" {
-		return errors.New("protocol error")
+		err = json.NewDecoder(io.LimitReader(resp.Body, MaxRead)).Decode(&rpy)
+		if err != nil {
+			return fmt.Errorf("decode: %v", err)
+		}
+
+		if rpy.Status != "Success" {
+			return errors.New(rpy.Error)
+		}
+
+		if rpy.Reservations == nil {
+			break
+		}
+
+		for _, r := range rpy.Reservations {
+			res = append(res, r)
+		}
+
+		next := resp.Header.Get("X-Next-Reservation")
+		if next == "" {
+			break
+		}
+
+		u, err = url.Parse(next)
+		if err != nil {
+			return err
+		}
 	}
 
 	filter := ""
@@ -163,7 +191,7 @@ func list(cmd *cobra.Command, args []string) error {
 	)
 
 	if !long && !jsonOutput {
-		for _, r := range rpy.Reservations {
+		for _, r := range res {
 			if !strings.HasPrefix(r.Resource, filter) {
 				continue
 			}
@@ -194,11 +222,11 @@ func list(cmd *cobra.Command, args []string) error {
 
 	switch sortby {
 	case "resource":
-		sort.Sort(byResource(rpy.Reservations))
+		sort.Sort(byResource(res))
 	case "name":
-		sort.Sort(byName(rpy.Reservations))
+		sort.Sort(byName(res))
 	case "date":
-		sort.Sort(byDate(rpy.Reservations))
+		sort.Sort(byDate(res))
 	}
 
 	if !quiet && !jsonOutput {
@@ -240,7 +268,7 @@ func list(cmd *cobra.Command, args []string) error {
 	}
 
 	var lastResource string
-	for _, r := range rpy.Reservations {
+	for _, r := range res {
 		if !strings.HasPrefix(r.Resource, filter) {
 			continue
 		}

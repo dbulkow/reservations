@@ -11,6 +11,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"sync"
@@ -27,6 +28,8 @@ import (
 var assets embed.FS
 
 //go:generate ./version.sh
+
+var service *url.URL
 
 func run(args []string, stdout, stderr io.Writer) error {
 	var (
@@ -137,6 +140,13 @@ func run(args []string, stdout, stderr io.Writer) error {
 	}()
 
 	// start web listener
+
+	// the service is convenient for development but will not
+	// reflect reality through a load balancer or proxy
+	service, err = url.Parse(fmt.Sprintf("http://%s:%s", addr, port))
+	if err != nil {
+		return err
+	}
 
 	log.Printf("serving http at %s", net.JoinHostPort(addr, port))
 

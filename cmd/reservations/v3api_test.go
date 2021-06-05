@@ -174,6 +174,8 @@ func TestV3APIGet(t *testing.T) {
 		},
 	}
 
+	service, _ = url.Parse("http://localhost")
+
 	handler := v3res(storage)
 	r, _ := http.NewRequest(http.MethodGet, "", nil)
 	w := httptest.NewRecorder()

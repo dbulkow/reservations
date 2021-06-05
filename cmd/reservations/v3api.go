@@ -195,28 +195,34 @@ func v3get(storage Storage, w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	u, err := url.Parse(r.Host + r.RequestURI)
+	u, err := url.Parse(r.RequestURI)
 	if err != nil {
 		v3error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	q = u.Query()
 
-	if q.Get("start") != "" || q.Get("limit") != "" {
-		if r.Method == http.MethodHead {
-			q.Set("start", "0")
-		} else {
-			q.Set("start", strconv.Itoa(res[len(res)-1].ID))
+	var next string
+	if len(res) > 0 {
+		if start > 0 || limit > 0 {
+			if r.Method == http.MethodHead {
+				q.Set("start", "0")
+			} else {
+				nextid := res[len(res)-1].ID + 1
+				q.Set("start", strconv.Itoa(nextid))
+			}
+			if limit > 0 {
+				q.Set("limit", strconv.Itoa(limit))
+			}
+			u.RawQuery = q.Encode()
 		}
-		q.Set("limit", q.Get("limit"))
-		u.RawQuery = q.Encode()
-	}
 
-	next := u.String()
+		next = service.ResolveReference(u).String()
+	}
 
 	reply := struct {
 		Status       string         `json:"status"`
-		Next         string         `json:"next"`
+		Next         string         `json:"next,omitempty"`
 		Reservations []*Reservation `json:"reservations"`
 	}{
 		Status:       "Success",
@@ -231,10 +237,16 @@ func v3get(storage Storage, w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Content-Length", strconv.Itoa(len(b)))
+	if r.Method == http.MethodHead {
+		w.Header().Set("Content-Length", "0")
+	} else {
+		w.Header().Set("Content-Length", strconv.Itoa(len(b)))
+	}
 	w.Header().Set("Last-Modified", modified.Format(time.RFC1123))
 	w.Header().Set("X-Reservation-Count", strconv.Itoa(len(res)))
-	w.Header().Set("X-Next-Reservation", next)
+	if next != "" {
+		w.Header().Set("X-Next-Reservation", next)
+	}
 
 	since := r.Header.Get("If-Modified-Since")
 	t, err := time.Parse(time.RFC1123, since)

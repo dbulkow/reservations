@@ -92,7 +92,7 @@ func (m *memory) List(resource, show string, start, length int) ([]*Reservation,
 		}
 
 		if length > 0 && len(response) >= length {
-			return response, nil
+			continue
 		}
 
 		switch show {
