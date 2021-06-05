@@ -101,6 +101,7 @@ func (j *jsonl) ReadLog(m *memory) error {
 		switch record.Operation {
 		case "add":
 			m.reservations = append(m.reservations, record.Reservation)
+			m.nextID = record.Reservation.ID + 1
 		case "modify":
 			for i, r := range m.reservations {
 				if r.ID != record.ID {
