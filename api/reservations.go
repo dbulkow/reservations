@@ -2,7 +2,10 @@
 
 package api
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 type Reservation struct {
 	ID           int       `json:"id"`
@@ -22,3 +25,11 @@ const (
 	V3mail = "/v3/mailverify"
 	V3api  = "/v3/reservations/"
 )
+
+func (r *Reservation) String() string {
+	if r.Loan {
+		return fmt.Sprintf("%d %s loan %s", r.ID, r.Resource, r.Name)
+	} else {
+		return fmt.Sprintf("%d %s from %s to %s %s", r.ID, r.Resource, r.Start.Format(time.RFC3339), r.End.Format(time.RFC3339), r.Name)
+	}
+}

@@ -167,6 +167,8 @@ func (m *memory) Add(res *Reservation) error {
 		return err
 	}
 
+	log.Printf("added %s", res)
+
 	return nil
 }
 
