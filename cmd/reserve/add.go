@@ -183,9 +183,11 @@ func add(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("error: %s", rpy.Error)
 	}
 
-	if rpy.ID != nil {
-		fmt.Printf("Added reservation %d\n", *rpy.ID)
+	if rpy.ID == nil {
+		return errors.New("empty reply")
 	}
+
+	fmt.Printf("Added reservation %d\n", *rpy.ID)
 
 	return nil
 }
