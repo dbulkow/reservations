@@ -220,6 +220,8 @@ func (m *memory) Update(ref int, req *Reservation) (*Reservation, error) {
 			return nil, err
 		}
 
+		log.Printf("updated %s", res)
+
 		return res, nil
 	}
 
@@ -238,6 +240,8 @@ func (m *memory) Update(ref int, req *Reservation) (*Reservation, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	log.Printf("updated %s", res)
 
 	return res, nil
 }
