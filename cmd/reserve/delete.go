@@ -95,7 +95,11 @@ func delete(cmd *cobra.Command, args []string) error {
 
 	datefmt := "Jan _2 15:04 2006"
 	fmt.Println("Delete the following entry:")
-	fmt.Printf("\n%d %s %s %s %s\n", res.ID, res.Resource, res.Name, res.Start.Local().Format(datefmt), res.End.Local().Format(datefmt))
+	if res.Loan {
+		fmt.Printf("\n%d %s %s loan\n", res.ID, res.Resource, res.Name)
+	} else {
+		fmt.Printf("\n%d %s %s %s %s\n", res.ID, res.Resource, res.Name, res.Start.Local().Format(datefmt), res.End.Local().Format(datefmt))
+	}
 
 	if force == false {
 		reader := bufio.NewReader(os.Stdin)

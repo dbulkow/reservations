@@ -315,8 +315,11 @@ func v3post(storage Storage, w http.ResponseWriter, r *http.Request) {
 
 	err = storage.Add(req)
 	if err != nil {
-		v3error(w, err.Error(), http.StatusBadRequest)
-		// StatusConflict
+		if strings.Contains(err.Error(), "on loan") || strings.Contains(err.Error(), "conflict") {
+			v3error(w, err.Error(), http.StatusConflict)
+		} else {
+			v3error(w, err.Error(), http.StatusBadRequest)
+		}
 		return
 	}
 
@@ -466,10 +469,20 @@ func v3patch(storage Storage, w http.ResponseWriter, r *http.Request, ref int) {
 }
 
 func v3delete(storage Storage, w http.ResponseWriter, r *http.Request, ref int) {
-	err := storage.Delete(ref)
+	since := r.Header.Get("If-Unmodified-Since")
+	last, err := time.Parse(time.RFC1123, since)
+	if err != nil {
+		last = time.Now()
+	}
+
+	err = storage.Delete(ref, last)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			v3error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		if strings.Contains(err.Error(), "modified") {
+			v3error(w, err.Error(), http.StatusConflict)
 			return
 		}
 		v3error(w, err.Error(), http.StatusInternalServerError)

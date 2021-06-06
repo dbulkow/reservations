@@ -59,7 +59,7 @@ func (s *apiStorage) Update(ref int, res *Reservation) (*Reservation, error) {
 	return res, s.error
 }
 
-func (s *apiStorage) Delete(ref int) error { return s.error }
+func (s *apiStorage) Delete(ref int, last time.Time) error { return s.error }
 
 type badReader struct{}
 

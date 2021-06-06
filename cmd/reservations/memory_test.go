@@ -512,7 +512,7 @@ func TestMemoryDelete(t *testing.T) {
 
 	id := 78
 
-	err := storage.Delete(id)
+	err := storage.Delete(id, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -528,7 +528,7 @@ func TestMemoryDeleteLoan(t *testing.T) {
 
 	id := 112
 
-	err := storage.Delete(id)
+	err := storage.Delete(id, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -559,7 +559,7 @@ func TestMemoryDeleteActive(t *testing.T) {
 
 	end := res.End
 
-	err = storage.Delete(id)
+	err = storage.Delete(id, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -579,7 +579,7 @@ func TestMemoryDeleteExpired(t *testing.T) {
 
 	id := 114
 
-	err := storage.Delete(id)
+	err := storage.Delete(id, time.Now())
 	if err == nil {
 		t.Fatal("expected \"already expired\" error")
 	}
@@ -594,7 +594,7 @@ func TestMemoryDeleteNotFound(t *testing.T) {
 
 	id := 1000
 
-	err := storage.Delete(id)
+	err := storage.Delete(id, time.Now())
 	if err == nil {
 		t.Fatal("expected \"not found\" error")
 	}

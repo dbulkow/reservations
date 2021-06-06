@@ -153,7 +153,7 @@ func (m *memory) Add(res *Reservation) error {
 
 	res.ID = m.nextID
 	res.Email = ""
-	res.LastModified = time.Now()
+	res.LastModified = time.Now().Round(time.Second)
 
 	if res.Loan {
 		res.End = res.Start
@@ -205,14 +205,13 @@ func (m *memory) Update(ref int, req *Reservation) (*Reservation, error) {
 			return nil, errors.New("converting to/from loan")
 		}
 
-		res.LastModified = now
+		res.LastModified = now.Round(time.Second)
 		res.End = req.End
 		res.Notes = req.Notes
 		res.Share = req.Share
 		res.Name = req.Name
 		res.Initials = req.Initials
 		res.Email = ""
-		res.LastModified = time.Now()
 
 		err := m.store.Update(res.ID, res)
 		if err != nil {
@@ -222,7 +221,7 @@ func (m *memory) Update(ref int, req *Reservation) (*Reservation, error) {
 		return res, nil
 	}
 
-	res.LastModified = now
+	res.LastModified = now.Round(time.Second)
 	res.Resource = req.Resource
 	res.Start = req.Start
 	res.End = req.End
@@ -232,7 +231,6 @@ func (m *memory) Update(ref int, req *Reservation) (*Reservation, error) {
 	res.Name = req.Name
 	res.Initials = req.Initials
 	res.Email = ""
-	res.LastModified = time.Now()
 
 	err = m.store.Update(res.ID, res)
 	if err != nil {
@@ -247,7 +245,7 @@ func (m *memory) Update(ref int, req *Reservation) (*Reservation, error) {
 // if reservation is active (start < now and (end > now || on loan))
 //    remove loan flag
 //    set end time <= now
-func (m *memory) Delete(ref int) error {
+func (m *memory) Delete(ref int, lastmod time.Time) error {
 	m.Lock()
 	defer m.Unlock()
 
@@ -256,6 +254,10 @@ func (m *memory) Delete(ref int) error {
 	for i, r := range m.reservations {
 		if r.ID != ref {
 			continue
+		}
+
+		if r.LastModified.After(lastmod) {
+			return errors.New("resource modified")
 		}
 
 		if r.Start.After(now) {
@@ -274,7 +276,7 @@ func (m *memory) Delete(ref int) error {
 		if r.Loan {
 			r.Loan = false
 			r.End = now
-			r.LastModified = time.Now()
+			r.LastModified = time.Now().Round(time.Second)
 
 			err := m.store.Update(r.ID, r)
 			if err != nil {
@@ -288,7 +290,7 @@ func (m *memory) Delete(ref int) error {
 
 		if r.Start.Before(now) && r.End.After(now) {
 			r.End = now
-			r.LastModified = time.Now()
+			r.LastModified = time.Now().Round(time.Second)
 
 			err := m.store.Update(r.ID, r)
 			if err != nil {
